@@ -1,38 +1,56 @@
-import { useRef } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
 function App() {
-  const [pakiautomaadid, setPakiautomaadid] = useState([]);
-  const [prices, setPrices] = useState([]);
-  const [chosenCountry, setChosenCountry] = useState("ee");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const startRef = useRef();
-  const endRef = useRef();
+  const [tooted, setTooted] = useState([]);
+  const idRef = useRef(); //toode.id
+  const nameRef = useRef(); //toode.name
+  const priceRef = useRef(); //toode.price
+  const [valuut, setvaluut] = useState("euro"); //valuut
+  const isActiveRef = useRef(); //toode.active
+
 
   useEffect(() => {
-    if (start !== "" && end !== "") {
-      fetch("https://localhost:7043/nordpool/" + chosenCountry + "/" + start + "/" + end)
+    fetch("https://localhost:7043/api/tooted") //показ всех продуктов
+      .then(res => res.json())
+      .then(json => setTooted(json));
+  }, []);
+
+  function kustuta(index) {
+    setTimeout(() => { //ТАЙМЕР НА 1 СЕКУНД
+      fetch("https://localhost:7043/api/tooted/kustuta/" + index, {"method": "DELETE"}) //Удаление продукта 
         .then(res => res.json())
-        .then(json => { setPrices(json); });
-    }
-    fetch("https://localhost:7043/parcelmachine")
-       .then(res => res.json())
-       .then(json => setPakiautomaadid(json));
-  }, [chosenCountry, start, end]);
-
-  function updateStart() {
-    const startIso = new Date(startRef.current.value).toISOString();
-    setStart(startIso);
+        .then(json => setTooted(json));
+    }, 1000);
   }
 
-  function updateEnd() {
-    const endIso = new Date(endRef.current.value).toISOString();
-    setEnd(endIso);
+  // ////////////////////////
+  // function lisa() {
+  //   const uusToode = {
+  //     "id": Number(idRef.current.value),
+  //     "name": nameRef.current.value,
+  //     "price": Number(priceRef.current.value),
+  //     "isActive": isActiveRef.current.checked
+  //   }
+  //   fetch("https://localhost:7043/api/tooted/lisa", {"method": "POST", "body": JSON.stringify(uusToode)})
+  //     .then(res => res.json())
+  //     .then(json => setTooted(json));
+  // }
+  // ////////////////////////
+
+  function lisa() {                                          ////////////////////////Добавление продукта
+    fetch(`https://localhost:7043/api/tooted/lisa/
+        ${Number(idRef.current.value)}/${nameRef.current.value}/        
+        ${Number(priceRef.current.value)}/${isActiveRef.current.checked}`, {"method": "POST"})
+      .then(res => res.json())
+      .then(json => setTooted(json));
   }
 
-  async function makePayment(sum) {
+  function dollariteks() {
+    setvaluut(prevValuut => (prevValuut === "euro" ? "dollar" : "euro"));
+  }
+
+  async function makePayment(sum) { //операция платежа
     try {
       const response = await fetch(`https://localhost:7043/Payment/${sum}`);
       if (response.ok) {
@@ -48,41 +66,46 @@ function App() {
     }
   }
   
-
-  return (
-    <div>
-      <button onClick={() => setChosenCountry("fi")}>Soome</button>
-      <button onClick={() => setChosenCountry("ee")}>Eesti</button>
-      <button onClick={() => setChosenCountry("lv")}>Läti</button>
-      <button onClick={() => setChosenCountry("lt")}>Leedu</button>
-      <input ref={startRef} onChange={updateStart} type="datetime-local" />
-      <input ref={endRef} onChange={updateEnd} type="datetime-local" />
-      {prices.length > 0 && 
-      <table style={{marginLeft: "100px"}}>
+  return(
+    <div className="App">
+      <div className="input">
+      <label>ID</label> <br />
+      <input ref={idRef} type="number" /> <br />
+      <label>Nimi</label> <br />
+      <input ref={nameRef} type="text" /> <br />
+      <label>Hind</label> <br />
+      <input ref={priceRef} type="number" /> <br />
+      <label>Aktiivne</label> <br />
+      <input ref={isActiveRef} type="checkbox" /> <br />
+      <button onClick={() => lisa()}>Lisa</button>
+      </div>
+      <table>
         <thead>
-          <th style={{border: "1px solid #ddd", padding: "12px", backgroundColor: "#04AA6D"}}>Ajatempel</th>
-          <th style={{border: "1px solid #ddd", padding: "12px", backgroundColor: "#04AA6D"}}>Hind</th>
-          <th style={{border: "1px solid #ddd", padding: "12px", backgroundColor: "#04AA6D"}}>Maksma</th>
+          <th>ID</th>
+          <th>Nimi</th>
+          <th>Hind</th>
+          <th>Aktiivne</th>
+          <th>Maksma</th>
+          <th>Dollariteks</th>
         </thead>
         <tbody>
-          <td style={{position: "absolute", left: "30px"}}>{chosenCountry}</td>
-          {prices.map(data => 
-          <tr key={data.timestamp}>
-            <td style={{border: "1px solid #ddd", padding: "8px"}}>{new Date(data.timestamp * 1000).toISOString()}</td>
-            <td style={{border: "1px solid #ddd", padding: "8px"}}>{data.price}</td>
-            <td><button onClick={() => makePayment(data.price)}>Maksma</button></td>
+          <td></td>
+          {tooted.map((toode, index) =>
+          <tr>
+            <td><div>{toode.id}</div></td>
+            <td><div>{toode.name}</div></td>
+            <td>
+                {valuut === "euro" ? "€" : "$"}
+                {Math.round(toode.price * (valuut === "euro" ? 1 : 1.05) * 100) / 100}
+            </td>
+            <td><button onClick={() => kustuta(index)}>Kustuta</button></td>
+            <td><button onClick={() => makePayment(toode.price) && kustuta(index)}>Maksma</button></td>
+            <td><button onClick={() => dollariteks()}>Muuda dollariteksbutton</button></td>     
           </tr>)}
         </tbody>
-      </table>}
-      <div className="App" style={{border: "1px solid #ddd", padding: "12px", backgroundColor: "#04AA6D"}}>
-        <select>
-          {pakiautomaadid.map(automaat => 
-            <option>
-              {automaat.name}
-            </option>)}
-        </select>
-      </div>
+      </table>
     </div>
+    
   );
 }
 
